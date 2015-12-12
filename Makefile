@@ -41,7 +41,7 @@
 
 
 # MCU name
-MCU = atmega8
+MCU = atmega88p
 
 
 # Processor frequency.
@@ -64,6 +64,16 @@ MCU = atmega8
 #         F_CPU = 20000000
 #F_CPU = 1000000
 F_CPU = 8000000
+
+
+# default LFUSE is 0xE1
+LFUSE=0xE4
+
+# default HFUSE is 0xD9
+HFUSE=0xD1
+
+# default EFUSE is 0x??
+EFUSE=0xFF
 
 
 # Output format. (can be srec, ihex, binary)
@@ -278,19 +288,20 @@ LDFLAGS += $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 # Type: avrdude -c ?
 # to get a full listing.
 #
-AVRDUDE_PROGRAMMER = usbasp
+AVRDUDE_PROGRAMMER = stk500v2
 
-# com1 = serial port. Use lpt1 to connect to parallel port.
-#AVRDUDE_PORT = -c com1    # programmer connected to serial device
+AVRDUDE_PORT = -P avrdoper
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 
+AVRDUDE_READ_FLAGS = -U lfuse:r:lfuse.bin:b -U hfuse:r:hfuse.bin:b
+AVRDUDE_WRITE_FLAGS = -u -U lfuse:w:$(LFUSE):m -U hfuse:w:$(HFUSE):m
 
 # Uncomment the following if you want avrdude's erase cycle counter.
 # Note that this counter needs to be initialized first using -Yn,
 # see avrdude manual.
-AVRDUDE_ERASE_COUNTER = -y
+#AVRDUDE_ERASE_COUNTER = -y
 
 # Uncomment the following if you do /not/ wish a verification to be
 # performed after programming the device.
@@ -456,7 +467,17 @@ gccversion :
 
 # Program the device.  
 program: $(TARGET).hex $(TARGET).eep
-	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH) $(AVRDUDE_WRITE_EEPROM)
+	sudo $(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH) $(AVRDUDE_WRITE_EEPROM)
+
+# read the device's fuses
+read_fuses: 
+	sudo $(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_READ_FLAGS)
+	cat hfuse.bin
+	cat lfuse.bin
+
+# Program the device's fuses
+write_fuses: 
+	sudo $(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLAGS)
 
 
 # Generate avr-gdb config/init file which does the following:

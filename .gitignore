@@ -4,4 +4,7 @@
 *.o
 *.lst
 *.lss
-
+*.map
+*.sym
+.dep
+.~lock*
