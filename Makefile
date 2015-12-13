@@ -94,7 +94,8 @@ OBJDIR = obj
 SRC = \
   $(TARGET).c \
   out.c \
-  fonts.c
+  fonts.c \
+  store.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)

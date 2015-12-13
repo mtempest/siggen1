@@ -1,10 +1,12 @@
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
 
 #include "ui.h"
 #include "out.h"
+#include "store.h"
 
 int main(void)
 {
@@ -16,18 +18,16 @@ int main(void)
   PORTC = 0xFF;
   PORTD = 0xFF;
 
-  DDRB = 1;
-
   UI_init();
   OUT_init();
+  STORE_init();
+
+  sei();
+
   while (1)
   {
-    //PORTB = 0xFF;
-    _delay_ms(300);
-    PORTB = 0xFE;
-    _delay_ms(300);
-
     UI_cyclic();
     OUT_cyclic();
+    STORE_cyclic();
   }
 }
