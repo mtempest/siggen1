@@ -91,11 +91,17 @@ OBJDIR = obj
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c out.c fonts.c
+SRC = \
+  $(TARGET).c \
+  out.c \
+  fonts.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
-CPPSRC = ui.cpp LCD5110_Graph/LCD5110_Graph.cpp
+CPPSRC = \
+  ui.cpp \
+  lcd.cpp \
+  LCD5110_Graph/LCD5110_Graph.cpp
 
 
 # List Assembler source files here.
