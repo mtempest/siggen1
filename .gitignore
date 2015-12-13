@@ -8,3 +8,4 @@
 *.sym
 .dep
 .~lock*
+fonts.c

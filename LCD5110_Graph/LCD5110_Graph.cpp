@@ -64,9 +64,9 @@ void LCD5110::_LCD_Write(unsigned char data, unsigned char mode)
 	/* Start transmission */
 	SPDR = data;
 	/* Wait for transmission complete */
-	//while(!(SPSR & (1<<SPIF)))
-	//	;
-        _delay_ms(1);
+	while(!(SPSR & (1<<SPIF)))
+		;
+        //_delay_ms(1);
 	//for (unsigned char c=0; c<8; c++)
 	//{
 	//	if (data & 0x80)
@@ -117,27 +117,27 @@ void LCD5110::setContrast(int contrast)
 	_contrast=contrast;
 }
 
-void LCD5110::enableSleep()
-{
-	_sleep = true;
-	_LCD_Write(PCD8544_SETYADDR, LCD_COMMAND);
-	_LCD_Write(PCD8544_SETXADDR, LCD_COMMAND);
-	for (int b=0; b<504; b++)
-		_LCD_Write(0, LCD_DATA);
-	_LCD_Write(PCD8544_FUNCTIONSET | PCD8544_POWERDOWN, LCD_COMMAND);
-}
+//void LCD5110::enableSleep()
+//{
+//	_sleep = true;
+//	_LCD_Write(PCD8544_SETYADDR, LCD_COMMAND);
+//	_LCD_Write(PCD8544_SETXADDR, LCD_COMMAND);
+//	for (int b=0; b<504; b++)
+//		_LCD_Write(0, LCD_DATA);
+//	_LCD_Write(PCD8544_FUNCTIONSET | PCD8544_POWERDOWN, LCD_COMMAND);
+//}
 
-void LCD5110::disableSleep()
-{
-	_sleep = false;
-	_LCD_Write(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION, LCD_COMMAND);
-	_LCD_Write(PCD8544_SETVOP | _contrast, LCD_COMMAND);
-	_LCD_Write(PCD8544_SETTEMP | LCD_TEMP, LCD_COMMAND);
-	_LCD_Write(PCD8544_SETBIAS | LCD_BIAS, LCD_COMMAND);
-	_LCD_Write(PCD8544_FUNCTIONSET, LCD_COMMAND);
-	_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL, LCD_COMMAND);
-	update();
-}
+//void LCD5110::disableSleep()
+//{
+//	_sleep = false;
+//	_LCD_Write(PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION, LCD_COMMAND);
+//	_LCD_Write(PCD8544_SETVOP | _contrast, LCD_COMMAND);
+//	_LCD_Write(PCD8544_SETTEMP | LCD_TEMP, LCD_COMMAND);
+//	_LCD_Write(PCD8544_SETBIAS | LCD_BIAS, LCD_COMMAND);
+//	_LCD_Write(PCD8544_FUNCTIONSET, LCD_COMMAND);
+//	_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL, LCD_COMMAND);
+//	update();
+//}
 
 void LCD5110::update()
 {
@@ -162,13 +162,13 @@ void LCD5110::clrScr()
 //		scrbuf[c]=255;
 //}
 
-void LCD5110::invert(bool mode)
-{
-	if (mode==true)
-		_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED, LCD_COMMAND);
-	else
-		_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL, LCD_COMMAND);
-}
+//void LCD5110::invert(bool mode)
+//{
+//	if (mode==true)
+//		_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED, LCD_COMMAND);
+//	else
+//		_LCD_Write(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYNORMAL, LCD_COMMAND);
+//}
 
 void LCD5110::setPixel(uint16_t x, uint16_t y)
 {
@@ -196,21 +196,21 @@ void LCD5110::clrPixel(uint16_t x, uint16_t y)
 	}
 }
 
-void LCD5110::invPixel(uint16_t x, uint16_t y)
-{
-	int by, bi;
-
-	if ((x>=0) and (x<84) and (y>=0) and (y<48))
-	{
-		by=((y/8)*84)+x;
-		bi=y % 8;
-
-		if ((scrbuf[by] & (1<<bi))==0)
-			scrbuf[by]=scrbuf[by] | (1<<bi);
-		else
-			scrbuf[by]=scrbuf[by] & ~(1<<bi);
-	}
-}
+//void LCD5110::invPixel(uint16_t x, uint16_t y)
+//{
+//	int by, bi;
+//
+//	if ((x>=0) and (x<84) and (y>=0) and (y<48))
+//	{
+//		by=((y/8)*84)+x;
+//		bi=y % 8;
+//
+//		if ((scrbuf[by] & (1<<bi))==0)
+//			scrbuf[by]=scrbuf[by] | (1<<bi);
+//		else
+//			scrbuf[by]=scrbuf[by] & ~(1<<bi);
+//	}
+//}
 
 void LCD5110::invertText(bool mode)
 {

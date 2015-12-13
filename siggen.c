@@ -22,7 +22,7 @@ int main(void)
   OUT_init();
   while (1)
   {
-    PORTB = 0xFF;
+    //PORTB = 0xFF;
     _delay_ms(300);
     PORTB = 0xFE;
     _delay_ms(300);

@@ -91,9 +91,7 @@ OBJDIR = obj
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c out.c 
-
-#LCD5110_Graph/DefaultFonts.c
+SRC = $(TARGET).c out.c fonts.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
@@ -419,6 +417,10 @@ all: begin gccversion sizebefore build sizeafter end
 # Change the build target to build a HEX file or a library.
 build: elf hex eep lss sym
 #build: lib
+
+fonts.c fonts.h: fonts.cfg LCD5110_Graph/DefaultFonts.c big_numbers.pgm gen_fonts.pl
+	@echo Generating fonts files
+	perl gen_fonts.pl fonts.cfg fonts.c
 
 
 elf: $(TARGET).elf
