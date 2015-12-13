@@ -90,9 +90,10 @@ class LCD5110
 		void clrPixel(uint16_t x, uint16_t y);
 //		void invPixel(uint16_t x, uint16_t y);
 		void invertText(bool mode);
-		void print(char *st, int x, int y);
+		void print(const char *st, int x, int y);
+		void print_P(const char *st, int x, int y);
 		//void print(String st, int x, int y);
-		void printNumI(long num, int x, int y, int length=0, char filler=' ');
+		//void printNumI(long num, int x, int y, int length=0, char filler=' ');
 		//void printNumF(double num, byte dec, int x, int y, char divider='.', int length=0, char filler=' ');
 		void setFont(const uint8_t* font);
 		//void drawBitmap(int x, int y, uint8_t* bitmap, int sx, int sy);
