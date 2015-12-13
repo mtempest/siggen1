@@ -41,7 +41,7 @@
 
 
 # MCU name
-MCU = atmega88p
+MCU = atmega8
 
 
 # Processor frequency.
@@ -91,15 +91,13 @@ OBJDIR = obj
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c ui.c out.c 
+SRC = $(TARGET).c out.c 
 
 #LCD5110_Graph/DefaultFonts.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
-CPPSRC = 
-
-#LCD5110_Graph/LCD5110_Graph.cpp
+CPPSRC = ui.cpp LCD5110_Graph/LCD5110_Graph.cpp
 
 
 # List Assembler source files here.
