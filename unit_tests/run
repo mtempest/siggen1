@@ -1,0 +1,13 @@
+#!/bin/sh
+
+cp ../format.c .
+cp ../format.h .
+
+echo Compiling tests...
+rm cat_uint32
+gcc -DDEBUG -std=gnu99 -Wall -Wstrict-prototypes cat_uint32.c format.c -o cat_uint32
+
+echo Running tests...
+./cat_uint32
+echo Done
+

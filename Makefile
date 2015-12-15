@@ -95,7 +95,8 @@ SRC = \
   $(TARGET).c \
   out.c \
   fonts.c \
-  store.c
+  store.c \
+  format.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
@@ -639,7 +640,12 @@ clean_list :
 	$(REMOVE) $(SRC:.c=.d)
 	$(REMOVE) $(SRC:.c=.i)
 	$(REMOVEDIR) .dep
+	$(REMOVE) fonts.c
+	$(REMOVE) fonts.h
 
+
+unit_tests:
+	cd unit_tests && ./run
 
 # Create object files directory
 $(shell mkdir $(OBJDIR) 2>/dev/null)
@@ -652,4 +658,5 @@ $(shell mkdir $(OBJDIR) 2>/dev/null)
 # Listing of phony targets.
 .PHONY : all begin finish end sizebefore sizeafter gccversion \
 build elf hex eep lss sym coff extcoff \
-clean clean_list program debug gdb-config
+clean clean_list program debug gdb-config \
+unit_tests

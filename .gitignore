@@ -9,3 +9,6 @@
 .dep
 .~lock*
 fonts.c
+unit_tests/format.c
+unit_tests/format.h
+unit_tests/cat_uint32
