@@ -46,7 +46,7 @@ enum
 };
 static uint8_t selected_param;
 static uint8_t units_steps;
-static volatile int8_t wait_after_freq_change;
+static volatile uint8_t wait_after_freq_change;
 
 static volatile uint8_t up_press;
 static volatile uint8_t down_press;
@@ -91,10 +91,15 @@ void UI_init(void)
 
 void UI_cyclic(void)
 {
-  if (wait_after_freq_change == 1)
+  if (wait_after_freq_change > 0)
   {
-    wait_after_freq_change = 0;
-    OUT_recompute_actual();
+    wait_after_freq_change --;
+    if (wait_after_freq_change == 0)
+    {
+      myGLCD.print_P(PSTR("----"), CENTER, LINE_3);
+      myGLCD.update();
+      OUT_recompute_actual();
+    }
   }
 
   if (next_press)
@@ -157,11 +162,6 @@ ISR(TIMER2_COMP_vect)
   }
 
   STORE_tick();
-
-  if (wait_after_freq_change > 1)
-  {
-    wait_after_freq_change --;
-  }
 }
 
 static void check_button(volatile uint8_t* port,
@@ -440,7 +440,7 @@ static void edit_number(void)
     {
       OUT_set_period_ns(n);
     }
-    wait_after_freq_change = 150;
+    wait_after_freq_change = 30;
   }
 }
 
