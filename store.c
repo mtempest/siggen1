@@ -13,6 +13,7 @@
 static struct
 {
   uint8_t osccal;
+  int8_t medium_cal;
   int8_t fine_cal;
   uint8_t contrast;
   uint8_t backlight;
@@ -74,6 +75,16 @@ void STORE_set_osccal(uint8_t new_value)
 uint8_t STORE_get_osccal(void)
 {
   return settings.osccal;
+}
+
+void STORE_set_medium_cal(int8_t new_value)
+{
+  settings.medium_cal = new_value;
+  wait_count = WAIT_BEFORE_WRITING;
+}
+int8_t STORE_get_medium_cal(void)
+{
+  return settings.medium_cal;
 }
 
 void STORE_set_fine_cal(int8_t new_value)

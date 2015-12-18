@@ -6,8 +6,6 @@
 #include "out.h"
 #include "store.h"
 
-#define F_PERIOD_NS  ((uint32_t)(1.0e9/F_CPU+0.5))
-
 // The period in clock cycles from frequency in mHz
 // is p = F_CPU / (f / 1000) i.e. p = (1000 * F_CPU) / f
 // but 1000 * F_CPU may overflow a 32-bit integer
@@ -33,11 +31,12 @@
 #endif
 
 static uint8_t on;
-static uint8_t freq_mode = 1;
+static uint8_t freq_mode = OUT_SQUARE;
 static uint8_t waveform;
 static uint8_t duty_cycle = 50;
 static uint8_t amplitude = 100;
 static int8_t fine_cal;
+static int8_t medium_cal;
 
 static uint32_t period_ns;
 static uint32_t freq_mHz = 1000000;
@@ -47,6 +46,7 @@ static void range_limit(uint32_t* n);
 void OUT_init(void)
 {
   fine_cal = STORE_get_fine_cal();
+  medium_cal = STORE_get_medium_cal();
 
   /* Setup timer 1 in fast PWM mode with TOP=ICR1
      and force output compare */
@@ -69,6 +69,11 @@ void OUT_recompute_actual(void)
   uint8_t prescaler_bits;
   uint16_t prescaler;
   uint16_t oc;
+  uint32_t f_cpu;
+  uint32_t f_period_ns;
+
+  f_cpu = (uint32_t)((int32_t)F_CPU + 2048L*medium_cal + 32L*fine_cal);
+  f_period_ns = (1000UL*1000UL*1000UL + f_cpu/2) / f_cpu;
   if (freq_mode == OUT_PERIOD_MODE)
   {
     range_limit(&period_ns);
@@ -78,7 +83,7 @@ void OUT_recompute_actual(void)
 
     /* First convert to CPU clock cycles, since this is the resolution
        of the timer itself. */
-    period_clocks = (period_ns + F_PERIOD_NS/2) / F_PERIOD_NS;
+    period_clocks = (period_ns + f_period_ns/2) / f_period_ns;
   }
   else
   {
@@ -89,7 +94,7 @@ void OUT_recompute_actual(void)
 
     /* First convert to CPU clock cycles, since this is the resolution
        of the timer itself. */
-    period_clocks = (F_CPU_MUL * F_CPU) / ((freq_mHz + F_OUT_DIV/2) / F_OUT_DIV);
+    period_clocks = (F_CPU_MUL * f_cpu) / ((freq_mHz + F_OUT_DIV/2) / F_OUT_DIV);
   }
 
   /* The period in clock cycles will in general be larger than 16 bits.
@@ -145,10 +150,10 @@ void OUT_recompute_actual(void)
   sei();
 
   // Compute the actual period
-  period_ns = period_clocks * prescaler * F_PERIOD_NS;
+  period_ns = period_clocks * prescaler * f_period_ns;
 
   // Compute the actual frequency
-  freq_mHz = (F_CPU_MUL * F_CPU) / ((period_clocks * prescaler + F_OUT_DIV/2) / F_OUT_DIV);
+  freq_mHz = (F_CPU_MUL * f_cpu) / ((period_clocks * prescaler + F_OUT_DIV/2) / F_OUT_DIV);
 }
 
 static void range_limit(uint32_t* n)
@@ -191,11 +196,22 @@ void OUT_set_fine_cal(int8_t new_value)
 {
   fine_cal = new_value;
   STORE_set_fine_cal(fine_cal);
-  //TODO
+  OUT_recompute_actual();
 }
 int8_t OUT_get_fine_cal(void)
 {
   return fine_cal;
+}
+
+void OUT_set_medium_cal(int8_t new_value)
+{
+  medium_cal = new_value;
+  STORE_set_medium_cal(medium_cal);
+  OUT_recompute_actual();
+}
+int8_t OUT_get_medium_cal(void)
+{
+  return medium_cal;
 }
 
 void OUT_set_waveform(uint8_t new_value)

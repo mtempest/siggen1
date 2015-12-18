@@ -16,6 +16,9 @@ void STORE_reset(void);
 void STORE_set_osccal(uint8_t new_value);
 uint8_t STORE_get_osccal(void);
 
+void STORE_set_medium_cal(int8_t new_value);
+int8_t STORE_get_medium_cal(void);
+
 void STORE_set_fine_cal(int8_t new_value);
 int8_t STORE_get_fine_cal(void);
 

@@ -26,6 +26,9 @@ uint8_t OUT_get_on(void);
 void OUT_set_fine_cal(int8_t new_value);
 int8_t OUT_get_fine_cal(void);
 
+void OUT_set_medium_cal(int8_t new_value);
+int8_t OUT_get_medium_cal(void);
+
 void OUT_set_waveform(uint8_t new_value);
 uint8_t OUT_get_waveform(void);
 

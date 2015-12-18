@@ -40,6 +40,7 @@ enum
   PARAM_CONTRAST,
   PARAM_BACKLIGHT,
   PARAM_FINE_CALIBRATE,
+  PARAM_MEDIUM_CALIBRATE,
   PARAM_OSCCAL,
 
   PARAM_LAST = PARAM_OSCCAL
@@ -575,6 +576,14 @@ static void show_parameter(void)
     FORMAT_cat_uint8(s, u8);
     if (check_up_down(&u8, 127))
     {
+      if (u8 < 32)
+      {
+        u8 = 32;
+      }
+      if (u8 > 96)
+      {
+        u8 = 96;
+      }
       myGLCD.setContrast(u8);
       STORE_set_contrast(u8);
     }
@@ -583,6 +592,18 @@ static void show_parameter(void)
   case PARAM_BACKLIGHT:
     strcpy_P(s, PSTR("Backlight:"));
     FORMAT_cat_uint8(s, STORE_get_backlight());
+    break;
+
+  case PARAM_MEDIUM_CALIBRATE:
+    strcpy_P(s, PSTR("Medium cal:"));
+    i8 = OUT_get_medium_cal();
+    FORMAT_cat_int8(s, i8);
+    u8 = i8 + 128;
+    if (check_up_down(&u8, 255))
+    {
+      i8 = u8 - 128;
+      OUT_set_medium_cal(i8);
+    }
     break;
 
   case PARAM_FINE_CALIBRATE:
