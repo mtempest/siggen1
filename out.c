@@ -30,6 +30,20 @@
   #error Cannot compute frequency scaling parameters
 #endif
 
+#define PWM_RATIO 64
+#define MAX_NON_SQUARE_FREQUENCY_mHz ((uint32_t)(F_CPU / 2.0 * 1000.0 / PWM_RATIO + 0.5))
+
+#define MIN_NON_SQUARE_PERIOD_NS ((uint32_t)(1e12 / MAX_NON_SQUARE_FREQUENCY_mHz + 0.5))
+
+#define SIN__1_OVER_32_PI  0.09802 /* sin(pi *  1/32) */
+#define SIN__3_OVER_32_PI  0.29028 /* sin(pi *  3/32) */
+#define SIN__5_OVER_32_PI  0.47140 /* sin(pi *  5/32) */
+#define SIN__7_OVER_32_PI  0.63439 /* sin(pi *  7/32) */
+#define SIN__9_OVER_32_PI  0.77301 /* sin(pi *  9/32) */
+#define SIN_11_OVER_32_PI  0.88192 /* sin(pi * 11/32) */
+#define SIN_13_OVER_32_PI  0.95694 /* sin(pi * 13/32) */
+#define SIN_15_OVER_32_PI  0.99518 /* sin(pi * 15/32) */
+
 static uint8_t on;
 static uint8_t freq_mode = OUT_SQUARE;
 static uint8_t waveform;
@@ -41,7 +55,11 @@ static int8_t medium_cal;
 static uint32_t period_ns;
 static uint32_t freq_mHz = 1000000;
 
+static uint8_t waveform_index;
+static uint16_t waveform_data[PWM_RATIO];
+
 static void range_limit(uint32_t* n);
+static void recompute_waveform(void);
 
 void OUT_init(void)
 {
@@ -71,30 +89,60 @@ void OUT_recompute_actual(void)
   uint16_t oc;
   uint32_t f_cpu;
   uint32_t f_period_ns;
+  uint32_t timer_period_ns;
+  uint32_t timer_freq_mHz;
+
+  if (freq_mode == OUT_PERIOD_MODE)
+  {
+    if (period_ns < MIN_NON_SQUARE_PERIOD_NS)
+    {
+      waveform = OUT_SQUARE;
+    }
+  }
+  else /* frequency mode */
+  {
+    if (freq_mHz > MAX_NON_SQUARE_FREQUENCY_mHz)
+    {
+      waveform = OUT_SQUARE;
+    }
+  }
+
+  if (waveform == OUT_SQUARE)
+  {
+    timer_period_ns = period_ns;
+    timer_freq_mHz = freq_mHz;
+    TIMSK &= (~1<<TOIE1);
+  }
+  else
+  {
+    timer_period_ns = (period_ns + PWM_RATIO/2)/PWM_RATIO;
+    timer_freq_mHz = freq_mHz * PWM_RATIO;
+  }
 
   f_cpu = (uint32_t)((int32_t)F_CPU + 2048L*medium_cal + 32L*fine_cal);
   f_period_ns = (1000UL*1000UL*1000UL + f_cpu/2) / f_cpu;
+
   if (freq_mode == OUT_PERIOD_MODE)
   {
-    range_limit(&period_ns);
+    range_limit(&timer_period_ns);
 
     /* Convert the period in ns to a prescaler setting
        and a period in CPU clock cycles */
 
     /* First convert to CPU clock cycles, since this is the resolution
        of the timer itself. */
-    period_clocks = (period_ns + f_period_ns/2) / f_period_ns;
+    period_clocks = (timer_period_ns + f_period_ns/2) / f_period_ns;
   }
   else
   {
-    range_limit(&freq_mHz);
+    range_limit(&timer_freq_mHz);
 
     /* Convert the frequency in mHz to a prescaler setting
        and a period in CPU clock cycles */
 
     /* First convert to CPU clock cycles, since this is the resolution
        of the timer itself. */
-    period_clocks = (F_CPU_MUL * f_cpu) / ((freq_mHz + F_OUT_DIV/2) / F_OUT_DIV);
+    period_clocks = (F_CPU_MUL * f_cpu) / ((timer_freq_mHz + F_OUT_DIV/2) / F_OUT_DIV);
   }
 
   /* The period in clock cycles will in general be larger than 16 bits.
@@ -150,10 +198,23 @@ void OUT_recompute_actual(void)
   sei();
 
   // Compute the actual period
-  period_ns = period_clocks * prescaler * f_period_ns;
+  timer_period_ns = period_clocks * prescaler * f_period_ns;
 
   // Compute the actual frequency
-  freq_mHz = (F_CPU_MUL * f_cpu) / ((period_clocks * prescaler + F_OUT_DIV/2) / F_OUT_DIV);
+  timer_freq_mHz = (F_CPU_MUL * f_cpu) / ((period_clocks * prescaler + F_OUT_DIV/2) / F_OUT_DIV);
+
+  if (waveform == OUT_SQUARE)
+  {
+    period_ns = timer_period_ns;
+    freq_mHz = timer_freq_mHz;
+  }
+  else
+  {
+    period_ns = timer_period_ns * PWM_RATIO;
+    freq_mHz = timer_freq_mHz / PWM_RATIO;
+    recompute_waveform();
+    TIMSK |= 1<<TOIE1;
+  }
 }
 
 static void range_limit(uint32_t* n)
@@ -168,9 +229,87 @@ static void range_limit(uint32_t* n)
   }
 }
 
+static void recompute_waveform(void)
+{
+  uint8_t i;
+  uint8_t half_inverse_symmetrical;
+  uint8_t quadrant_symmetrical;
+
+  switch (waveform)
+  {
+  case OUT_SQUARE:
+  default:
+    for (i = 0; i < PWM_RATIO/4; i++)
+    {
+      waveform_data[i] = 32768 - 4*8191;
+    }
+    quadrant_symmetrical = 1;
+    half_inverse_symmetrical = 1;
+    break;
+
+  case OUT_TRIANGLE:
+    for (i = 0; i <= PWM_RATIO/4; i++)
+    {
+      waveform_data[i] = 32768 + 8191*i;
+    }
+    for (i = 1; i < PWM_RATIO/4; i++)
+    {
+      waveform_data[PWM_RATIO/4 + i] = waveform_data[PWM_RATIO/4+1 - i];
+    }
+    quadrant_symmetrical = 0;
+    half_inverse_symmetrical = 1;
+    break;
+
+  case OUT_SINE:
+    waveform_data[0] = (uint16_t)(32768 + SIN__1_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[1] = (uint16_t)(32768 + SIN__3_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[2] = (uint16_t)(32768 + SIN__5_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[3] = (uint16_t)(32768 + SIN__7_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[4] = (uint16_t)(32768 + SIN__9_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[5] = (uint16_t)(32768 + SIN_11_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[6] = (uint16_t)(32768 + SIN_13_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[7] = (uint16_t)(32768 + SIN_15_OVER_32_PI * 4. * 8191. + 0.5);
+    half_inverse_symmetrical = 1;
+    quadrant_symmetrical = 1;
+    break;
+  }
+
+  if (quadrant_symmetrical)
+  {
+    /* second quadrant is the reverse of the first quadrant */
+    for (i = 0; i < PWM_RATIO/4; i++)
+    {
+      waveform_data[PWM_RATIO/4 + i] = waveform_data[PWM_RATIO/4-1 - i];
+    }
+  }
+
+  if (half_inverse_symmetrical)
+  {
+    /* second half is the reverse of the first half,
+       mirrored about the time axis */
+    for (i = 0; i < PWM_RATIO/2; i++)
+    {
+      waveform_data[PWM_RATIO - 1 - i] = 32768 - (waveform_data[i] - 32768);
+    }
+  }
+
+  /* Scale the data taking the amplitude into account */
+  for (i = 0; i < PWM_RATIO; i++)
+  {
+    waveform_data[i] = (uint16_t)(((int32_t)waveform_data[i] - 32768L) * amplitude / 100 + 32768);
+  }
+}
+
+ISR(TIMER1_OVF_vect)
+{
+  OCR1A = waveform_data[waveform_index];
+  waveform_index++;
+  waveform_index %= PWM_RATIO;
+}
+
 void OUT_set_freq_mode(uint8_t new_value)
 {
-  freq_mode = new_value;//TODO
+  freq_mode = new_value;
 }
 uint8_t OUT_get_freq_mode(void)
 {
@@ -217,7 +356,6 @@ int8_t OUT_get_medium_cal(void)
 void OUT_set_waveform(uint8_t new_value)
 {
   waveform = new_value;
-  //TODO
 }
 uint8_t OUT_get_waveform(void)
 {
@@ -244,7 +382,7 @@ uint32_t OUT_get_period_ns(void)
 
 void OUT_set_duty_cycle_percent(uint8_t new_value)
 {
-  duty_cycle = new_value; //TODO
+  duty_cycle = new_value;
 }
 uint8_t OUT_get_duty_cycle_percent(void)
 {
