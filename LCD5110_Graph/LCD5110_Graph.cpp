@@ -37,12 +37,12 @@ LCD5110::LCD5110(/*int SCK, int MOSI, int DC, int RST, int CS*/)
 	//B_SCK	= digitalPinToBitMask(SCK);
 	//P_MOSI	= portOutputRegister(digitalPinToPort(MOSI));
 	//B_MOSI	= digitalPinToBitMask(MOSI);
-	P_DC	= &PORTD;
-	B_DC	= 1<<PD7;
-	P_RST	= &PORTD;
-	B_RST	= 1<<PD6;
-	P_CS	= &PORTD;
-	B_CS	= 1<<PD5;
+	P_DC	= &PORTC;
+	B_DC	= 1<<PC0;
+	P_RST	= &PORTB;
+	B_RST	= 1<<PB2;
+	P_CS	= &PORTB;
+	B_CS	= 1<<PB0;
 	//pinMode(SCK,OUTPUT);
 	//pinMode(MOSI,OUTPUT);
 	//pinMode(DC,OUTPUT);

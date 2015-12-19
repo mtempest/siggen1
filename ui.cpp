@@ -84,9 +84,9 @@ void UI_init(void)
   OCR2 = (uint8_t)(F_CPU / 1024 / 50 - 1);
   TIMSK |= (1<<OCIE2);
 
-  // Configure PD2, PD3, PD6 as inputs with pull-ups enabled
-  DDRD &= ~((1<<PD2)|(1<<PD3)|(1<<PD4));
-  PORTD |= (1<<PD2)|(1<<PD3)|(1<<PD4);
+  // Configure PC2, PC3, PC4, PC5 as inputs with pull-ups enabled
+  DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
+  PORTC |= (1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5);
 
 }
 
@@ -149,15 +149,19 @@ ISR(TIMER2_COMP_vect)
   static uint8_t up_history;
   static uint8_t down_history;
   static uint8_t next_history;
+  static uint8_t prev_history;
   static uint8_t up_count;
   static uint8_t down_count;
   static uint8_t next_count;
-  check_button(&PIND, 1<<PD2, &up_history, &up_count, &up_press);
-  check_button(&PIND, 1<<PD3, &down_history, &down_count, &down_press);
-  check_button(&PIND, 1<<PD4, &next_history, &next_count, &next_press);
+  static uint8_t prev_count;
+  check_button(&PINC, 1<<PC3, &up_history, &up_count, &up_press);
+  check_button(&PINC, 1<<PC2, &down_history, &down_count, &down_press);
+  check_button(&PINC, 1<<PC5, &next_history, &next_count, &next_press);
+  check_button(&PINC, 1<<PC4, &prev_history, &prev_count, &prev_press);
   if ((up_history == 0xFF) &&
       (down_history == 0xFF) &&
-      (next_history == 0xFF))
+      (next_history == 0xFF) &&
+      (prev_history == 0xFF))
   {
     STORE_reset();
   }

@@ -14,7 +14,8 @@ void LCD_init(void)
   SPCR = (1<<SPE)|(1<<MSTR)|(1<<CPOL)|(1<<CPHA) | 3;
 
   /* Set the pins for DC, RST and CS to output */
-  DDRD |= (1<<PD7) | (1<<PD6) | (1<<PD5);
+  DDRB |= (1<<PB0) | (1<<PB2);
+  DDRC |= (1<<PC0);
 
   myGLCD.InitLCD(0x46);
 }
