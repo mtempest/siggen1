@@ -54,6 +54,9 @@ static volatile uint8_t down_press;
 static volatile uint8_t next_press;
 static volatile uint8_t prev_press;
 
+static uint8_t backlight_off_count;
+static uint8_t backlight_count;
+
 static char scratch[15];
 
 static void check_button(volatile uint8_t* port,
@@ -75,6 +78,7 @@ static void show_parameter(void);
 void UI_init(void)
 {
   LCD_init();
+  uint8_t u8;
 
   // Configure Timer 2 to generate interrupt at approx 50Hz
   // and toggle OC2
@@ -88,6 +92,15 @@ void UI_init(void)
   DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
   PORTC |= (1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5);
 
+  u8 = STORE_get_backlight();
+  if (u8 == 8)
+  {
+    backlight_off_count = 255;
+  }
+  else
+  {
+    backlight_off_count = 1 << u8;
+  }
 }
 
 void UI_cyclic(void)
@@ -167,6 +180,16 @@ ISR(TIMER2_COMP_vect)
   }
 
   STORE_tick();
+
+  backlight_count++;
+  if (backlight_count < backlight_off_count)
+  {
+    PORTC |= (1<<PC1);
+  }
+  else
+  {
+    PORTC &= ~(1<<PC1);
+  }
 }
 
 static void check_button(volatile uint8_t* port,
@@ -595,7 +618,20 @@ static void show_parameter(void)
 
   case PARAM_BACKLIGHT:
     strcpy_P(s, PSTR("Backlight:"));
-    FORMAT_cat_uint8(s, STORE_get_backlight());
+    u8 = STORE_get_backlight();
+    FORMAT_cat_uint8(s, u8);
+    if (check_up_down(&u8, 8))
+    {
+      STORE_set_backlight(u8);
+    }
+    if (u8 == 8)
+    {
+      backlight_off_count = 255;
+    }
+    else
+    {
+      backlight_off_count = 1 << u8;
+    }
     break;
 
   case PARAM_MEDIUM_CALIBRATE:
