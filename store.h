@@ -25,9 +25,6 @@ int8_t STORE_get_fine_cal(void);
 void STORE_set_contrast(uint8_t new_value);
 uint8_t STORE_get_contrast(void);
 
-void STORE_set_backlight(uint8_t new_value);
-uint8_t STORE_get_backlight(void);
-
 void STORE_set_waveform(uint8_t new_value);
 uint8_t STORE_get_waveform(void);
 

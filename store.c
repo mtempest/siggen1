@@ -16,7 +16,7 @@ static struct
   int8_t medium_cal;
   int8_t fine_cal;
   uint8_t contrast;
-  uint8_t backlight;
+  uint8_t unused;
   uint8_t waveform;
   uint8_t checksum;
 } settings;
@@ -105,16 +105,6 @@ void STORE_set_contrast(uint8_t new_value)
 uint8_t STORE_get_contrast(void)
 {
   return settings.contrast;
-}
-
-void STORE_set_backlight(uint8_t new_value)
-{
-  settings.backlight = new_value;
-  wait_count = WAIT_BEFORE_WRITING;
-}
-uint8_t STORE_get_backlight(void)
-{
-  return settings.backlight;
 }
 
 void STORE_set_waveform(uint8_t new_value)

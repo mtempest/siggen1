@@ -38,7 +38,6 @@ enum
   PARAM_DUTY_CYCLE,
   PARAM_AMPLITUDE,
   PARAM_CONTRAST,
-  PARAM_BACKLIGHT,
   PARAM_FINE_CALIBRATE,
   PARAM_MEDIUM_CALIBRATE,
   PARAM_OSCCAL,
@@ -47,15 +46,13 @@ enum
 };
 static uint8_t selected_param;
 static uint8_t units_steps;
-static volatile uint8_t wait_after_freq_change;
+static uint8_t wait_after_freq_change;
+static uint8_t wait_after_freq_count;
 
 static volatile uint8_t up_press;
 static volatile uint8_t down_press;
 static volatile uint8_t next_press;
 static volatile uint8_t prev_press;
-
-static uint8_t backlight_off_count;
-static uint8_t backlight_count;
 
 static char scratch[15];
 
@@ -78,21 +75,10 @@ static void show_parameter(void);
 void UI_init(void)
 {
   LCD_init();
-  uint8_t u8;
 
-  u8 = STORE_get_backlight();
-  if (u8 == 8)
-  {
-    backlight_off_count = 255;
-  }
-  else
-  {
-    backlight_off_count = 1 << u8;
-  }
-
-  // Set baud rate to give 20 10-bit characters per second
+  // Set baud rate to give 50 10-bit characters per second
 #undef BAUD
-#define BAUD 200
+#define BAUD 500
 #include <util/setbaud.h>
 UBRRH = UBRRH_VALUE;
 UBRRL = UBRRL_VALUE;
@@ -110,19 +96,19 @@ UCSRA &= ~(1 << U2X);
   // Configure PC2, PC3, PC4, PC5 as inputs with pull-ups enabled
   DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
   PORTC |= (1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5);
+
+  // Turn on backlight
+  PORTC |= (1<<PC1);
 }
 
 void UI_cyclic(void)
 {
-  if (wait_after_freq_change > 0)
+  if ((wait_after_freq_change != 0) && (wait_after_freq_count == 0))
   {
-    wait_after_freq_change --;
-    if (wait_after_freq_change == 0)
-    {
-      myGLCD.print_P(PSTR("----"), CENTER, LINE_3);
-      myGLCD.update();
-      OUT_recompute_actual();
-    }
+    wait_after_freq_change = 0;
+    myGLCD.print_P(PSTR("----"), CENTER, LINE_3);
+    myGLCD.update();
+    OUT_recompute_actual();
   }
 
   if (next_press)
@@ -197,14 +183,10 @@ ISR(USART_UDRE_vect)
 
   STORE_tick();
 
-  backlight_count++;
-  if (backlight_count < backlight_off_count)
+  if ((wait_after_freq_change != 0) &&
+      (wait_after_freq_count > 0))
   {
-    PORTC |= (1<<PC1);
-  }
-  else
-  {
-    PORTC &= ~(1<<PC1);
+    wait_after_freq_count--;
   }
 }
 
@@ -484,7 +466,8 @@ static void edit_number(void)
     {
       OUT_set_period_ns(n);
     }
-    wait_after_freq_change = 30;
+    wait_after_freq_count = (3*BAUD/10); // 3 seconds
+    wait_after_freq_change = 1;
   }
 }
 
@@ -629,24 +612,6 @@ static void show_parameter(void)
       }
       myGLCD.setContrast(u8);
       STORE_set_contrast(u8);
-    }
-    break;
-
-  case PARAM_BACKLIGHT:
-    strcpy_P(s, PSTR("Backlight:"));
-    u8 = STORE_get_backlight();
-    FORMAT_cat_uint8(s, u8);
-    if (check_up_down(&u8, 8))
-    {
-      STORE_set_backlight(u8);
-    }
-    if (u8 == 8)
-    {
-      backlight_off_count = 255;
-    }
-    else
-    {
-      backlight_off_count = 1 << u8;
     }
     break;
 
