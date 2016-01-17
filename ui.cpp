@@ -80,18 +80,6 @@ void UI_init(void)
   LCD_init();
   uint8_t u8;
 
-  // Configure Timer 2 to generate interrupt at approx 50Hz
-  // and toggle OC2
-  TCCR2 = (1<<WGM21)|(0<<WGM20)|
-          (0<<COM21)|(1<<COM20)|
-          (1<<CS22)|(1<<CS21)|(1<<CS20);
-  OCR2 = (uint8_t)(F_CPU / 1024 / 50 - 1);
-  TIMSK |= (1<<OCIE2);
-
-  // Configure PC2, PC3, PC4, PC5 as inputs with pull-ups enabled
-  DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
-  PORTC |= (1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5);
-
   u8 = STORE_get_backlight();
   if (u8 == 8)
   {
@@ -101,6 +89,27 @@ void UI_init(void)
   {
     backlight_off_count = 1 << u8;
   }
+
+  // Set baud rate to give 20 10-bit characters per second
+#undef BAUD
+#define BAUD 200
+#include <util/setbaud.h>
+UBRRH = UBRRH_VALUE;
+UBRRL = UBRRL_VALUE;
+#if USE_2X
+UCSRA |= (1 << U2X);
+#else
+UCSRA &= ~(1 << U2X);
+#endif
+
+  UCSRB = (1<<TXEN); // enable transmitter
+  UCSRC = (1<<URSEL) | (1<<UCSZ1) | (1<<UCSZ0); // 8 data bits, no parity, 1 stop bit
+  UDR = 0; // Start transmission of first character
+  UCSRB |= (1<<UDRIE); // enable tx data register empty interrupt
+
+  // Configure PC2, PC3, PC4, PC5 as inputs with pull-ups enabled
+  DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
+  PORTC |= (1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5);
 }
 
 void UI_cyclic(void)
@@ -157,7 +166,7 @@ void UI_cyclic(void)
   myGLCD.setContrast(STORE_get_contrast());
 }
 
-ISR(TIMER2_COMP_vect)
+ISR(USART_UDRE_vect)
 {
   static uint8_t up_history;
   static uint8_t down_history;
@@ -167,6 +176,13 @@ ISR(TIMER2_COMP_vect)
   static uint8_t down_count;
   static uint8_t next_count;
   static uint8_t prev_count;
+
+  // Transmit next character, the end of which triggers the next interrupt
+  UDR=0;
+
+  // enable nested interrupts for waveform generation
+  sei();
+
   check_button(&PINC, 1<<PC3, &up_history, &up_count, &up_press);
   check_button(&PINC, 1<<PC2, &down_history, &down_count, &down_press);
   check_button(&PINC, 1<<PC5, &next_history, &next_count, &next_press);
