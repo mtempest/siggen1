@@ -30,10 +30,11 @@
   #error Cannot compute frequency scaling parameters
 #endif
 
-#define PWM_RATIO 64
-#define MAX_NON_SQUARE_FREQUENCY_mHz ((uint32_t)(F_CPU / 2.0 * 1000.0 / PWM_RATIO + 0.5))
+// 5-bit R-2R DAC
+#define DAC_CENTRE 16
+#define DAC_AMPL   15
 
-#define MIN_NON_SQUARE_PERIOD_NS ((uint32_t)(1e12 / MAX_NON_SQUARE_FREQUENCY_mHz + 0.5))
+#define WAVEFORM_LENGTH 32
 
 #define SIN__1_OVER_32_PI  0.09802 /* sin(pi *  1/32) */
 #define SIN__3_OVER_32_PI  0.29028 /* sin(pi *  3/32) */
@@ -55,8 +56,7 @@ static int8_t medium_cal;
 static uint32_t period_ns;
 static uint32_t freq_mHz = 1000000;
 
-static uint8_t waveform_index;
-static uint16_t waveform_data[PWM_RATIO];
+static uint8_t waveform_data[WAVEFORM_LENGTH];
 
 static void range_limit(uint32_t* n);
 static void recompute_waveform(void);
@@ -66,9 +66,11 @@ void OUT_init(void)
   fine_cal = STORE_get_fine_cal();
   medium_cal = STORE_get_medium_cal();
 
-  /* Setup timer 1 in fast PWM mode with TOP=ICR1
+  /* Setup timer 1 in fast PWM mode,
+     going low on compare match
+     with TOP=ICR1
      and force output compare */
-  TCCR1A = (1<<FOC1A)|(1<<FOC1B)|(1<<WGM11)|(0<<WGM10);
+  TCCR1A = (1<<FOC1A)|(1<<FOC1B)|(1<<WGM11)|(0<<WGM10)|(1<<COM1A1)|(0<<COM1A0);
   TCCR1B = (1<<WGM13)|(1<<WGM12);
 
   OUT_recompute_actual();
@@ -94,29 +96,30 @@ void OUT_recompute_actual(void)
 
   if (freq_mode == OUT_PERIOD_MODE)
   {
-    if (period_ns < MIN_NON_SQUARE_PERIOD_NS)
+    if (period_ns < OUT_MIN_NON_SQUARE_PERIOD_NS)
     {
       waveform = OUT_SQUARE;
     }
   }
   else /* frequency mode */
   {
-    if (freq_mHz > MAX_NON_SQUARE_FREQUENCY_mHz)
+    if (freq_mHz > OUT_MAX_NON_SQUARE_FREQUENCY_mHz)
     {
       waveform = OUT_SQUARE;
     }
   }
 
+  DDRD &= ~((1<<PD0)|(1<<PD1)|(1<<PD2)|(1<<PD3)|(1<<PD4));
+  TIMSK &= (~1<<TOIE1);
   if (waveform == OUT_SQUARE)
   {
     timer_period_ns = period_ns;
     timer_freq_mHz = freq_mHz;
-    TIMSK &= (~1<<TOIE1);
   }
   else
   {
-    timer_period_ns = (period_ns + PWM_RATIO/2)/PWM_RATIO;
-    timer_freq_mHz = freq_mHz * PWM_RATIO;
+    timer_period_ns = (period_ns + WAVEFORM_LENGTH/2)/WAVEFORM_LENGTH;
+    timer_freq_mHz = freq_mHz * WAVEFORM_LENGTH;
   }
 
   f_cpu = (uint32_t)((int32_t)F_CPU + 2048L*medium_cal + 32L*fine_cal);
@@ -210,10 +213,11 @@ void OUT_recompute_actual(void)
   }
   else
   {
-    period_ns = timer_period_ns * PWM_RATIO;
-    freq_mHz = timer_freq_mHz / PWM_RATIO;
+    period_ns = timer_period_ns * WAVEFORM_LENGTH;
+    freq_mHz = timer_freq_mHz / WAVEFORM_LENGTH;
     recompute_waveform();
     TIMSK |= 1<<TOIE1;
+    DDRD |= (1<<PD0)|(1<<PD1)|(1<<PD2)|(1<<PD3)|(1<<PD4);
   }
 }
 
@@ -239,36 +243,36 @@ static void recompute_waveform(void)
   {
   case OUT_SQUARE:
   default:
-    for (i = 0; i < PWM_RATIO/4; i++)
+    for (i = 0; i < WAVEFORM_LENGTH/4; i++)
     {
-      waveform_data[i] = 32768 - 4*8191;
+      waveform_data[i] = DAC_CENTRE + DAC_AMPL;
     }
     quadrant_symmetrical = 1;
     half_inverse_symmetrical = 1;
     break;
 
   case OUT_TRIANGLE:
-    for (i = 0; i <= PWM_RATIO/4; i++)
+    for (i = 0; i <= WAVEFORM_LENGTH/4; i++)
     {
-      waveform_data[i] = 32768 + 8191*i;
+      waveform_data[i] = DAC_CENTRE + DAC_AMPL * (int)i / (WAVEFORM_LENGTH/4);
     }
-    for (i = 1; i < PWM_RATIO/4; i++)
+    for (i = 1; i < WAVEFORM_LENGTH/4; i++)
     {
-      waveform_data[PWM_RATIO/4 + i] = waveform_data[PWM_RATIO/4+1 - i];
+      waveform_data[WAVEFORM_LENGTH/4 + i] = waveform_data[WAVEFORM_LENGTH/4+1 - i];
     }
     quadrant_symmetrical = 0;
     half_inverse_symmetrical = 1;
     break;
 
   case OUT_SINE:
-    waveform_data[0] = (uint16_t)(32768 + SIN__1_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[1] = (uint16_t)(32768 + SIN__3_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[2] = (uint16_t)(32768 + SIN__5_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[3] = (uint16_t)(32768 + SIN__7_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[4] = (uint16_t)(32768 + SIN__9_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[5] = (uint16_t)(32768 + SIN_11_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[6] = (uint16_t)(32768 + SIN_13_OVER_32_PI * 4. * 8191. + 0.5);
-    waveform_data[7] = (uint16_t)(32768 + SIN_15_OVER_32_PI * 4. * 8191. + 0.5);
+    waveform_data[0] = (uint16_t)(DAC_CENTRE + SIN__1_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[1] = (uint16_t)(DAC_CENTRE + SIN__3_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[2] = (uint16_t)(DAC_CENTRE + SIN__5_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[3] = (uint16_t)(DAC_CENTRE + SIN__7_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[4] = (uint16_t)(DAC_CENTRE + SIN__9_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[5] = (uint16_t)(DAC_CENTRE + SIN_11_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[6] = (uint16_t)(DAC_CENTRE + SIN_13_OVER_32_PI * DAC_AMPL + 0.5);
+    waveform_data[7] = (uint16_t)(DAC_CENTRE + SIN_15_OVER_32_PI * DAC_AMPL + 0.5);
     half_inverse_symmetrical = 1;
     quadrant_symmetrical = 1;
     break;
@@ -277,9 +281,9 @@ static void recompute_waveform(void)
   if (quadrant_symmetrical)
   {
     /* second quadrant is the reverse of the first quadrant */
-    for (i = 0; i < PWM_RATIO/4; i++)
+    for (i = 0; i < WAVEFORM_LENGTH/4; i++)
     {
-      waveform_data[PWM_RATIO/4 + i] = waveform_data[PWM_RATIO/4-1 - i];
+      waveform_data[WAVEFORM_LENGTH/4 + i] = waveform_data[WAVEFORM_LENGTH/4-1 - i];
     }
   }
 
@@ -287,24 +291,26 @@ static void recompute_waveform(void)
   {
     /* second half is the reverse of the first half,
        mirrored about the time axis */
-    for (i = 0; i < PWM_RATIO/2; i++)
+    for (i = 0; i < WAVEFORM_LENGTH/2; i++)
     {
-      waveform_data[PWM_RATIO - 1 - i] = 32768 - (waveform_data[i] - 32768);
+      waveform_data[WAVEFORM_LENGTH - 1 - i] = DAC_CENTRE - (waveform_data[i] - DAC_CENTRE);
     }
   }
 
   /* Scale the data taking the amplitude into account */
-  for (i = 0; i < PWM_RATIO; i++)
+  for (i = 0; i < WAVEFORM_LENGTH; i++)
   {
-    waveform_data[i] = (uint16_t)(((int32_t)waveform_data[i] - 32768L) * amplitude / 100 + 32768);
+    waveform_data[i] = (uint16_t)(((int32_t)waveform_data[i] - DAC_CENTRE) * amplitude / 100 + DAC_CENTRE);
   }
 }
 
 ISR(TIMER1_OVF_vect)
 {
-  OCR1A = waveform_data[waveform_index];
-  waveform_index++;
-  waveform_index %= PWM_RATIO;
+  uint8_t next_index = TCNT0; // TCNT0 is static storage for the waveform index
+  next_index++;
+  next_index %= WAVEFORM_LENGTH;
+  TCNT0 = next_index;
+  PORTD = waveform_data[next_index];
 }
 
 void OUT_set_freq_mode(uint8_t new_value)
@@ -318,13 +324,7 @@ uint8_t OUT_get_freq_mode(void)
 
 void OUT_set_on(uint8_t new_value)
 {
-  on = new_value;
-  TCCR1A &= ~((1<<COM1A1)|(1<<COM1A0));
-  if (on)
-  {
-    // PWM, going low on compare match
-    TCCR1A |= (1<<COM1A1)|(0<<COM1A0);
-  }
+  on = new_value; // TODO
 }
 uint8_t OUT_get_on(void)
 {
@@ -356,6 +356,26 @@ int8_t OUT_get_medium_cal(void)
 void OUT_set_waveform(uint8_t new_value)
 {
   waveform = new_value;
+
+  if (waveform != OUT_SQUARE)
+  {
+    if (freq_mode == OUT_PERIOD_MODE)
+    {
+      while (period_ns < OUT_MIN_NON_SQUARE_PERIOD_NS)
+      {
+        period_ns *= 10;
+      }
+    }
+    else /* frequency mode */
+    {
+      if (freq_mHz > OUT_MAX_NON_SQUARE_FREQUENCY_mHz)
+      {
+        freq_mHz /= 10;
+      }
+    }
+  }
+
+  OUT_recompute_actual();
 }
 uint8_t OUT_get_waveform(void)
 {
@@ -391,7 +411,8 @@ uint8_t OUT_get_duty_cycle_percent(void)
 
 void OUT_set_amplitude_percent(uint8_t new_value)
 {
-  amplitude = new_value;//TODO
+  amplitude = new_value;
+  OUT_recompute_actual();
 }
 uint8_t OUT_get_amplitude_percent(void)
 {

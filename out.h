@@ -14,6 +14,10 @@ extern "C" {
 #define OUT_PERIOD_MODE 0
 #define OUT_FREQ_MODE   1
 
+#define OUT_MAX_NON_SQUARE_FREQUENCY_mHz (50UL*1000UL*1000UL)
+
+#define OUT_MIN_NON_SQUARE_PERIOD_NS ((uint32_t)(1e12 / OUT_MAX_NON_SQUARE_FREQUENCY_mHz + 0.5))
+
 void OUT_init(void);
 
 void OUT_cyclic(void);

@@ -76,22 +76,13 @@ void UI_init(void)
 {
   LCD_init();
 
-  // Set baud rate to give 50 10-bit characters per second
-#undef BAUD
-#define BAUD 500
-#include <util/setbaud.h>
-UBRRH = UBRRH_VALUE;
-UBRRL = UBRRL_VALUE;
-#if USE_2X
-UCSRA |= (1 << U2X);
-#else
-UCSRA &= ~(1 << U2X);
-#endif
-
-  UCSRB = (1<<TXEN); // enable transmitter
-  UCSRC = (1<<URSEL) | (1<<UCSZ1) | (1<<UCSZ0); // 8 data bits, no parity, 1 stop bit
-  UDR = 0; // Start transmission of first character
-  UCSRB |= (1<<UDRIE); // enable tx data register empty interrupt
+  // Configure Timer 2 to generate interrupt at approx 50Hz
+  // and toggle OC2
+  TCCR2 = (1<<WGM21)|(0<<WGM20)|
+          (0<<COM21)|(1<<COM20)|
+          (1<<CS22)|(1<<CS21)|(1<<CS20);
+  OCR2 = (uint8_t)(F_CPU / 1024 / 50 - 1);
+  TIMSK |= (1<<OCIE2);
 
   // Configure PC2, PC3, PC4, PC5 as inputs with pull-ups enabled
   DDRC &= ~((1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5));
@@ -152,7 +143,7 @@ void UI_cyclic(void)
   myGLCD.setContrast(STORE_get_contrast());
 }
 
-ISR(USART_UDRE_vect)
+ISR(TIMER2_COMP_vect)
 {
   static uint8_t up_history;
   static uint8_t down_history;
@@ -163,10 +154,9 @@ ISR(USART_UDRE_vect)
   static uint8_t next_count;
   static uint8_t prev_count;
 
-  // Transmit next character, the end of which triggers the next interrupt
-  UDR=0;
-
   // enable nested interrupts for waveform generation
+  // but don't let this interrupt nest itself
+  TIMSK &= ~(1<<OCIE2);
   sei();
 
   check_button(&PINC, 1<<PC3, &up_history, &up_count, &up_press);
@@ -188,6 +178,9 @@ ISR(USART_UDRE_vect)
   {
     wait_after_freq_count--;
   }
+
+  cli();
+  TIMSK |= (1<<OCIE2);
 }
 
 static void check_button(volatile uint8_t* port,
@@ -346,6 +339,7 @@ static void edit_number(void)
   int8_t exponent;
   uint8_t dp_position;
   uint8_t digit_position;
+  uint8_t waveform;
 
   if (up_press)
   {
@@ -375,20 +369,41 @@ static void edit_number(void)
     {
       n = OUT_get_period_ns();
     }
+    waveform = OUT_get_waveform();
     if (selected_param == PARAM_SCALE)
     {
-      if (up)
+      if (waveform == OUT_SQUARE)
       {
-        if (n < 400UL*1000UL*1000UL)
+        if (up)
         {
-          n *= 10;
+          if (n < 400UL*1000UL*1000UL)
+          {
+            n *= 10;
+          }
+        }
+        else // down
+        {
+          if (n > 2500)
+          {
+            n /= 10;
+          }
         }
       }
-      else // down
+      else // triangle or sine
       {
-        if (n > 2500)
+        if (up)
         {
-          n /= 10;
+          if (n < (OUT_MAX_NON_SQUARE_FREQUENCY_mHz/10))
+          {
+            n *= 10;
+          }
+        }
+        else // down
+        {
+          if (n > (OUT_MIN_NON_SQUARE_PERIOD_NS*10))
+          {
+            n /= 10;
+          }
         }
       }
     }
@@ -466,7 +481,7 @@ static void edit_number(void)
     {
       OUT_set_period_ns(n);
     }
-    wait_after_freq_count = (3*BAUD/10); // 3 seconds
+    wait_after_freq_count = 150; // 3 seconds
     wait_after_freq_change = 1;
   }
 }
