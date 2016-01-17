@@ -45,7 +45,7 @@
 #define SIN_15_OVER_32_PI  0.99518 /* sin(pi * 15/32) */
 
 static uint8_t on;
-static uint8_t freq_mode = OUT_SQUARE;
+static uint8_t freq_mode = OUT_FREQ_MODE;
 static uint8_t waveform;
 static uint8_t duty_cycle = 50;
 static uint8_t amplitude = 100;
