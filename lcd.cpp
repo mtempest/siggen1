@@ -11,7 +11,7 @@ void LCD_init(void)
 
   /* Enable SPI, Master, CPOL=1, CPHA=1 */
   /* Also: MSB first, clock=fosc/4 */
-  SPCR = (1<<SPE)|(1<<MSTR)|(1<<CPOL)|(1<<CPHA) | 3;
+  SPCR = (1<<SPE)|(1<<MSTR)|(1<<CPOL)|(1<<CPHA) | (1<<SPR0);
 
   /* Set the pins for DC, RST and CS to output */
   DDRB |= (1<<PB0) | (1<<PB2);
